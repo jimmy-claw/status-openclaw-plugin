@@ -1,0 +1,12 @@
+[Unit]
+Description=Status Backend
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/status-backend --address localhost:21405
+Environment=LD_LIBRARY_PATH=/usr/local/lib
+User=vpavlin
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

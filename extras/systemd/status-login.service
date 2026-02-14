@@ -1,0 +1,13 @@
+[Unit]
+Description=Status Backend Login
+After=status-backend.service
+Requires=status-backend.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/vpavlin/.openclaw/workspace/scripts/status-login.sh
+User=vpavlin
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

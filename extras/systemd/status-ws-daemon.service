@@ -1,0 +1,20 @@
+[Unit]
+Description=Status WebSocket Message Listener
+After=status-backend.service
+Requires=status-backend.service
+
+[Service]
+ExecStart=/usr/bin/python3 -u /home/vpavlin/.openclaw/workspace/skills/status-messenger/scripts/status-ws-daemon.py --openclaw-notify
+Environment=STATUS_MY_PUBKEY=0x04c66fd08fb3b136dd130dc32c51ef04f0d805fec31c50e0750ceed46db2d50d74b102caf00264a8e1fd4b8fe21e4125bfb3d06f74964b6545766cbac7942af5a5
+Environment=STATUS_PORT=21405
+Environment=HOME=/home/vpavlin
+Environment=PYTHONUNBUFFERED=1
+Environment=PATH=/home/vpavlin/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+Environment=OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
+Environment=OPENCLAW_GATEWAY_TOKEN=70174ac41d1b4629b9aaafbfb24a3663f520bbdd367cd80c
+User=vpavlin
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
