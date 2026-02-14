@@ -1,0 +1,32 @@
+{
+  "name": "@openclaw/status",
+  "version": "0.1.0",
+  "description": "OpenClaw channel plugin for Status messenger via status-backend HTTP API",
+  "type": "module",
+  "dependencies": {
+    "ws": "^8.16.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "status",
+      "label": "Status",
+      "selectionLabel": "Status Messenger",
+      "docsPath": "/channels/status",
+      "docsLabel": "status",
+      "blurb": "Decentralized messaging via Status (Waku) network",
+      "order": 100,
+      "quickstartAllowFrom": true
+    },
+    "install": {
+      "localPath": "plugins/openclaw-status",
+      "defaultChoice": "local"
+    }
+  }
+}
