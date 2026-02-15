@@ -187,6 +187,28 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
       const seenMessages = new Set<string>();
       let pollStopped = false;
 
+      // Cache of chat info for resolving group names from chatId
+      const chatInfoCache = new Map<string, { chatType: number; name: string }>();
+
+      // Helper: resolve chat info (group name, type) from chatId
+      const resolveChatInfo = (msg: any): { isGroup: boolean; groupName?: string; chatId?: string } => {
+        // Check explicit tag from poll loop
+        if ((msg as any)._groupChatName) {
+          return { isGroup: true, groupName: (msg as any)._groupChatName, chatId: (msg as any)._groupChatId };
+        }
+        // Check chatId/localChatId on the message itself (WS signals include this)
+        const chatId: string = msg.localChatId ?? msg.chatId ?? "";
+        if (chatId && chatInfoCache.has(chatId)) {
+          const info = chatInfoCache.get(chatId)!;
+          return { isGroup: info.chatType === 3, groupName: info.chatType === 3 ? info.name : undefined, chatId };
+        }
+        // If chatId doesn't start with 0x, it's likely a group (UUID format)
+        if (chatId && !chatId.startsWith("0x")) {
+          return { isGroup: true, groupName: "group", chatId };
+        }
+        return { isGroup: false, chatId: chatId || undefined };
+      };
+
       // Helper: process an inbound message
       const handleMsg = async (msg: any) => {
         const msgId: string = msg.id ?? msg.ID ?? "";
@@ -202,32 +224,33 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
         // Skip empty messages
         if (!text.trim()) return;
 
-        ctx.log?.info(`[${account.accountId}] Inbound from ${from.slice(0, 16)}...: ${text.slice(0, 80)}`);
+        const chatInfo = resolveChatInfo(msg);
+        const senderLabel = from.slice(0, 12) + "...";
+        const chatId = chatInfo.chatId ?? "";
+
+        let prefix: string;
+        if (chatInfo.isGroup) {
+          prefix = `[Status group "${chatInfo.groupName ?? 'group'}" (${chatId.slice(0, 12)}...) from ${senderLabel}]`;
+        } else {
+          prefix = `[Status DM from ${senderLabel}]`;
+        }
+
+        ctx.log?.info(`[${account.accountId}] Inbound ${chatInfo.isGroup ? 'GROUP' : 'DM'} from ${from.slice(0, 16)}...: ${text.slice(0, 80)}`);
 
         // Send as system event with immediate wake (--mode now triggers agent turn)
         try {
-          const senderLabel = from.slice(0, 12) + "...";
-          const groupName = (msg as any)._groupChatName;
-          const prefix = groupName
-            ? `[Status group "${groupName}" from ${senderLabel}]`
-            : `[Status DM from ${senderLabel}]`;
           const eventText = `${prefix} ${text}`;
-          const result = await runtime.system.runCommandWithTimeout(
+          await runtime.system.runCommandWithTimeout(
             ["openclaw", "system", "event", "--text", eventText, "--mode", "now"],
             { timeoutMs: 10_000 }
           );
           ctx.log?.info(`[${account.accountId}] Sent system event (mode=now): ${prefix} ${text.slice(0, 40)}`);
         } catch (err: any) {
           ctx.log?.error(`[${account.accountId}] Failed to send system event: ${err.message}`);
-          // Fallback to enqueue (won't trigger immediate response but at least queued)
+          // Fallback to enqueue
           try {
-            const senderLabel2 = from.slice(0, 12) + "...";
-            const groupName2 = (msg as any)._groupChatName;
-            const prefix2 = groupName2
-              ? `[Status group "${groupName2}" from ${senderLabel2}]`
-              : `[Status DM from ${senderLabel2}]`;
             runtime.system.enqueueSystemEvent(
-              `${prefix2} ${text}`,
+              `${prefix} ${text}`,
               { sessionKey: "agent:main:main" }
             );
           } catch { /* last resort failed */ }
@@ -277,6 +300,9 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
             if (chat.chatType !== 1 && chat.chatType !== 3) continue;
             const chatId = chat.id ?? "";
             if (!chatId) continue;
+
+            // Cache chat info for WS signal lookups
+            chatInfoCache.set(chatId, { chatType: chat.chatType, name: chat.name ?? "" });
 
             const lastTs = lastSeenTimestamp.get(chatId) ?? Date.now();
             if (!lastSeenTimestamp.has(chatId)) lastSeenTimestamp.set(chatId, lastTs);
@@ -336,6 +362,7 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
             if (chat.chatType !== 1 && chat.chatType !== 3) continue;
             const chatId = chat.id ?? "";
             if (!chatId) continue;
+            chatInfoCache.set(chatId, { chatType: chat.chatType, name: chat.name ?? "" });
             const result = (await getChatMessages(port, chatId, "", 10)) as any;
             let maxTs = 0;
             for (const msg of (result?.messages ?? [])) {
