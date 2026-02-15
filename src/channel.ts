@@ -247,59 +247,76 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
       // Message polling fallback (since WebSocket signals may not fire until
       // startMessenger completes, which can hang on arm64)
       const POLL_INTERVAL_MS = 15_000;
-      let lastPollTimestamp = Date.now();
+      // Use timestamp-based tracking per chat to avoid race conditions
+      const lastSeenTimestamp = new Map<string, number>();
 
       const pollMessages = async () => {
         try {
-          ctx.log?.info(`[${account.accountId}] Polling for messages (since ${lastPollTimestamp})...`);
           const chats = (await getActiveChats(port)) as any[];
-          if (!Array.isArray(chats)) {
-            ctx.log?.warn(`[${account.accountId}] getActiveChats returned non-array`);
-            return;
-          }
+          if (!Array.isArray(chats)) return;
 
+          let foundNew = false;
           for (const chat of chats) {
-            if (chat.chatType !== 1 && chat.chatType !== 3) continue; // 1:1 and group chats
+            if (chat.chatType !== 1 && chat.chatType !== 3) continue;
             const chatId = chat.id ?? "";
             if (!chatId) continue;
 
-            const result = (await getChatMessages(port, chatId, "", 5)) as any;
+            const lastTs = lastSeenTimestamp.get(chatId) ?? Date.now();
+            if (!lastSeenTimestamp.has(chatId)) lastSeenTimestamp.set(chatId, lastTs);
+
+            const result = (await getChatMessages(port, chatId, "", 10)) as any;
             const messages = result?.messages ?? [];
 
+            let maxTs = lastTs;
             for (const msg of messages) {
               if (!msg) continue;
               const ts: number = msg.timestamp ?? msg.clock ?? 0;
-              // Only process messages newer than last poll
-              if (ts <= lastPollTimestamp) continue;
-              // For group chats, include chat name in the event
+              if (ts <= lastTs) continue;
+              if (ts > maxTs) maxTs = ts;
+
+              // Skip if already handled via seenMessages (WebSocket)
+              const msgId: string = msg.id ?? "";
+              if (msgId && seenMessages.has(msgId)) continue;
+
+              // Tag group chats
               if (chat.chatType === 3) {
                 (msg as any)._groupChatName = chat.name ?? "group";
                 (msg as any)._groupChatId = chatId;
               }
+              ctx.log?.info(`[${account.accountId}] Poll found msg in ${chat.chatType === 3 ? 'group "' + (chat.name ?? '') + '"' : 'DM'} ts=${ts}`);
+              foundNew = true;
               await handleMsg(msg);
             }
+            lastSeenTimestamp.set(chatId, maxTs);
           }
 
-          lastPollTimestamp = Date.now();
+          if (!foundNew) {
+            // Quiet poll — don't spam logs
+          }
         } catch (err: any) {
-          // Silently ignore poll errors (backend may be restarting)
-          ctx.log?.debug?.(`[${account.accountId}] Poll error: ${err.message}`);
+          ctx.log?.warn?.(`[${account.accountId}] Poll error: ${err.message}`);
         }
       };
 
-      // Seed seen messages from recent history to avoid replaying old messages
+      // Seed seen messages + per-chat timestamps from recent history
       try {
         const chats = (await getActiveChats(port)) as any[];
         if (Array.isArray(chats)) {
           for (const chat of chats) {
             if (chat.chatType !== 1 && chat.chatType !== 3) continue;
-            const result = (await getChatMessages(port, chat.id, "", 10)) as any;
+            const chatId = chat.id ?? "";
+            if (!chatId) continue;
+            const result = (await getChatMessages(port, chatId, "", 10)) as any;
+            let maxTs = 0;
             for (const msg of (result?.messages ?? [])) {
               if (msg?.id) seenMessages.add(msg.id);
+              const ts: number = msg?.timestamp ?? msg?.clock ?? 0;
+              if (ts > maxTs) maxTs = ts;
             }
+            if (maxTs > 0) lastSeenTimestamp.set(chatId, maxTs);
           }
         }
-        ctx.log?.info(`[${account.accountId}] Seeded ${seenMessages.size} existing message IDs`);
+        ctx.log?.info(`[${account.accountId}] Seeded ${seenMessages.size} msg IDs, ${lastSeenTimestamp.size} chat timestamps`);
       } catch {
         // Non-fatal
       }
