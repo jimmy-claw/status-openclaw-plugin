@@ -204,20 +204,34 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
 
         ctx.log?.info(`[${account.accountId}] Inbound from ${from.slice(0, 16)}...: ${text.slice(0, 80)}`);
 
-        // Inject as system event into main session — the agent will see it and can reply
+        // Send as system event with immediate wake (--mode now triggers agent turn)
         try {
           const senderLabel = from.slice(0, 12) + "...";
           const groupName = (msg as any)._groupChatName;
           const prefix = groupName
             ? `[Status group "${groupName}" from ${senderLabel}]`
             : `[Status DM from ${senderLabel}]`;
-          runtime.system.enqueueSystemEvent(
-            `${prefix} ${text}`,
-            { sessionKey: "agent:main:main" }
+          const eventText = `${prefix} ${text}`;
+          const result = await runtime.system.runCommandWithTimeout(
+            "openclaw",
+            ["system", "event", "--text", eventText, "--mode", "now"],
+            { timeoutMs: 10_000 }
           );
-          ctx.log?.info(`[${account.accountId}] Enqueued system event for Status DM`);
+          ctx.log?.info(`[${account.accountId}] Sent system event (mode=now): ${prefix} ${text.slice(0, 40)}`);
         } catch (err: any) {
-          ctx.log?.error(`[${account.accountId}] Failed to enqueue system event: ${err.message}`);
+          ctx.log?.error(`[${account.accountId}] Failed to send system event: ${err.message}`);
+          // Fallback to enqueue (won't trigger immediate response but at least queued)
+          try {
+            const senderLabel2 = from.slice(0, 12) + "...";
+            const groupName2 = (msg as any)._groupChatName;
+            const prefix2 = groupName2
+              ? `[Status group "${groupName2}" from ${senderLabel2}]`
+              : `[Status DM from ${senderLabel2}]`;
+            runtime.system.enqueueSystemEvent(
+              `${prefix2} ${text}`,
+              { sessionKey: "agent:main:main" }
+            );
+          } catch { /* last resort failed */ }
         }
       };
 
