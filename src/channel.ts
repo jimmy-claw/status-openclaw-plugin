@@ -207,8 +207,12 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
         // Inject as system event into main session — the agent will see it and can reply
         try {
           const senderLabel = from.slice(0, 12) + "...";
+          const groupName = (msg as any)._groupChatName;
+          const prefix = groupName
+            ? `[Status group "${groupName}" from ${senderLabel}]`
+            : `[Status DM from ${senderLabel}]`;
           runtime.system.enqueueSystemEvent(
-            `[Status DM from ${senderLabel}] ${text}`,
+            `${prefix} ${text}`,
             { sessionKey: "agent:main:main" }
           );
           ctx.log?.info(`[${account.accountId}] Enqueued system event for Status DM`);
@@ -255,7 +259,7 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
           }
 
           for (const chat of chats) {
-            if (chat.chatType !== 1) continue; // Only 1:1 chats
+            if (chat.chatType !== 1 && chat.chatType !== 3) continue; // 1:1 and group chats
             const chatId = chat.id ?? "";
             if (!chatId) continue;
 
@@ -267,6 +271,11 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
               const ts: number = msg.timestamp ?? msg.clock ?? 0;
               // Only process messages newer than last poll
               if (ts <= lastPollTimestamp) continue;
+              // For group chats, include chat name in the event
+              if (chat.chatType === 3) {
+                (msg as any)._groupChatName = chat.name ?? "group";
+                (msg as any)._groupChatId = chatId;
+              }
               await handleMsg(msg);
             }
           }
@@ -283,7 +292,7 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
         const chats = (await getActiveChats(port)) as any[];
         if (Array.isArray(chats)) {
           for (const chat of chats) {
-            if (chat.chatType !== 1) continue;
+            if (chat.chatType !== 1 && chat.chatType !== 3) continue;
             const result = (await getChatMessages(port, chat.id, "", 10)) as any;
             for (const msg of (result?.messages ?? [])) {
               if (msg?.id) seenMessages.add(msg.id);
