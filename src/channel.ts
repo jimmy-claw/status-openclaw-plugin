@@ -250,12 +250,16 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
       // Use timestamp-based tracking per chat to avoid race conditions
       const lastSeenTimestamp = new Map<string, number>();
 
+      let pollCount = 0;
       const pollMessages = async () => {
+        pollCount++;
         try {
           const chats = (await getActiveChats(port)) as any[];
-          if (!Array.isArray(chats)) return;
+          if (!Array.isArray(chats)) {
+            ctx.log?.warn(`[${account.accountId}] Poll #${pollCount}: getActiveChats returned non-array`);
+            return;
+          }
 
-          let foundNew = false;
           for (const chat of chats) {
             if (chat.chatType !== 1 && chat.chatType !== 3) continue;
             const chatId = chat.id ?? "";
@@ -264,7 +268,13 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
             const lastTs = lastSeenTimestamp.get(chatId) ?? Date.now();
             if (!lastSeenTimestamp.has(chatId)) lastSeenTimestamp.set(chatId, lastTs);
 
-            const result = (await getChatMessages(port, chatId, "", 10)) as any;
+            let result: any;
+            try {
+              result = await getChatMessages(port, chatId, "", 10);
+            } catch (fetchErr: any) {
+              ctx.log?.warn(`[${account.accountId}] Poll #${pollCount}: getChatMessages failed for ${chatId.slice(0, 20)}: ${fetchErr.message}`);
+              continue;
+            }
             const messages = result?.messages ?? [];
 
             let maxTs = lastTs;
@@ -283,18 +293,25 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
                 (msg as any)._groupChatName = chat.name ?? "group";
                 (msg as any)._groupChatId = chatId;
               }
-              ctx.log?.info(`[${account.accountId}] Poll found msg in ${chat.chatType === 3 ? 'group "' + (chat.name ?? '') + '"' : 'DM'} ts=${ts}`);
-              foundNew = true;
-              await handleMsg(msg);
+
+              const chatLabel = chat.chatType === 3 ? `group "${chat.name ?? ''}"` : "DM";
+              ctx.log?.info(`[${account.accountId}] Poll #${pollCount}: new msg in ${chatLabel} ts=${ts} from=${(msg.from ?? '').slice(0, 16)}`);
+
+              try {
+                await handleMsg(msg);
+              } catch (handleErr: any) {
+                ctx.log?.error(`[${account.accountId}] Poll #${pollCount}: handleMsg error: ${handleErr.message}`);
+              }
             }
             lastSeenTimestamp.set(chatId, maxTs);
           }
 
-          if (!foundNew) {
-            // Quiet poll — don't spam logs
+          // Log every 20th poll to confirm still alive
+          if (pollCount % 20 === 0) {
+            ctx.log?.info(`[${account.accountId}] Poll #${pollCount} alive (${lastSeenTimestamp.size} chats tracked)`);
           }
         } catch (err: any) {
-          ctx.log?.warn?.(`[${account.accountId}] Poll error: ${err.message}`);
+          ctx.log?.error(`[${account.accountId}] Poll #${pollCount} error: ${err?.message ?? err}`);
         }
       };
 
