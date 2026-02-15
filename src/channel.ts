@@ -213,8 +213,7 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
             : `[Status DM from ${senderLabel}]`;
           const eventText = `${prefix} ${text}`;
           const result = await runtime.system.runCommandWithTimeout(
-            "openclaw",
-            ["system", "event", "--text", eventText, "--mode", "now"],
+            ["openclaw", "system", "event", "--text", eventText, "--mode", "now"],
             { timeoutMs: 10_000 }
           );
           ctx.log?.info(`[${account.accountId}] Sent system event (mode=now): ${prefix} ${text.slice(0, 40)}`);
