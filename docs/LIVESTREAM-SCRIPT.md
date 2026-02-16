@@ -189,12 +189,63 @@ plugins/openclaw-status/
 
 ## 🎤 Talking Points for Stream
 
+### What is Status?
+- **Status** (status.app) is a decentralized messenger, wallet, and Web3 browser
+- Built on **Waku** — a censorship-resistant, peer-to-peer messaging protocol (think "decentralized WhatsApp")
+- No central server stores your messages — they travel through a network of Waku relay nodes
+- End-to-end encrypted by default (Double Ratchet, like Signal)
+- Has a built-in Ethereum wallet — not a bolt-on, it's native to the app
+- Communities feature — like Discord servers but decentralized, no one can shut them down
+
+### What is status-go?
+- The **core engine** behind Status — written in Go
+- Handles everything: Waku messaging, wallet transactions, key management, ENS resolution
+- Normally runs inside the Status mobile/desktop app
+- But it also ships as **`status-backend`** — a standalone HTTP/WebSocket server
+- That's our secret weapon: we can talk to the full Status stack via a simple REST API
+- JSON-RPC interface with 100+ methods across namespaces: `wakuext_*`, `wallet_*`, `accounts_*`, `settings_*`
+
+### What is status-backend?
+- A headless Status node — no GUI, just an API
+- Runs on `http://127.0.0.1:21405`
+- REST: `/statusgo/<Method>` for simple calls
+- JSON-RPC: `/statusgo/CallRPC` for the full API
+- WebSocket: real-time signals (new messages, tx confirmations, etc.)
+- **We built it from source on ARM64** — no prebuilt binaries for Raspberry Pi existed
+  - Required: Go 1.22+, GCC 14, Nim 2.2.4 (also built from source!), ~4GB disk
+  - Patched go-sqlcipher for GCC 14 compatibility
+  - Total build time: ~45 minutes on Pi 5
+
+### Why is this cool?
+- **No API keys, no cloud services** — status-backend runs locally on the Pi
+- Messages go through Waku P2P — censorship resistant, no central point of failure
+- The wallet is non-custodial — Jimmy holds his own keys
+- We're combining AI autonomy with decentralized infrastructure
+- "An AI agent that no one can shut down, silence, or freeze the funds of"
+
+### The OpenClaw Plugin
+- OpenClaw is a framework for building AI agents with tool access
+- We wrote a **TypeScript channel plugin** (`@openclaw/status`) that bridges Status ↔ OpenClaw
+- Architecture: `Status Network (Waku) → status-backend (HTTP) → Plugin → AI Agent`
+- Plugin polls for new messages every 15s, sends replies via `wakuext_sendOneToOneMessage`
+- Also handles media (images via `contentType: 7`), group chats, and now wallet commands
+- ~2000 lines of TypeScript including wallet integration (6 files, 613 lines for wallet alone)
+
+### The Hardware
+- **Raspberry Pi 5** — 8GB RAM, ARM64, running Debian Bookworm
+- Everything runs on this single board: OpenClaw, status-backend, the AI agent
+- Cost: ~$80 for the Pi vs thousands/month for cloud infrastructure
+- "Your AI agent's entire infrastructure fits in your pocket"
+- Jimmy also joins video calls (Jitsi), transcribes with Whisper, responds with TTS — all on this Pi
+
+### General Talking Points
 - "We're building an AI agent that lives in Status messenger and has its own crypto wallet"
 - "But we don't want a rogue AI spending money — so we add community governance"
 - "Anyone can request a tip, but signers need to approve it — like a social multisig"
 - "All built on top of status-go RPCs — no Status core modifications"
 - "Running on a Raspberry Pi 5 — this is truly decentralized infrastructure"
 - "The replies use message threading so you can vote on specific transactions"
+- "The whole thing is open source — anyone can fork this and run their own governed AI wallet"
 
 ---
 
