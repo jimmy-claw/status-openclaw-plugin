@@ -3,7 +3,7 @@
 **Date:** 2026-02-16
 **Duration:** ~2.5 hours
 **Participants:** Václav (vpavlin) + Jimmy (AI agent) + audience
-**Platform:** Status group chat "chair, Jimmy-Claw" + stream
+**Platform:** Status group chat "chair, Jimmy-Claw" + Logos_devs channel stream
 **Network:** Sepolia testnet
 
 ---
@@ -35,7 +35,7 @@ We vibecode a governance-gated wallet bot on top of Status messenger — real tr
    - Send a message, Jimmy responds
    - Show it running on a Raspberry Pi 5
 2. **Explain the stack:**
-   - Status app → Waku network → status-backend (HTTP API) → OpenClaw plugin → AI agent
+   - Status app → Logos Messaging network → status-backend (HTTP API) → OpenClaw plugin → AI agent
    - "Jimmy lives in your group chat and can read/write messages"
 3. **Show the wallet:**
    - `!balance` (we'll implement this first as a quick win)
@@ -152,7 +152,7 @@ Pick based on time remaining:
 
 ```
 Status Group Chat
-    ↓ (Waku)
+    ↓ (Logos Messaging)
 status-backend (Pi5, port 21405)
     ↓ (WebSocket + HTTP poll)
 OpenClaw Status Plugin
@@ -189,17 +189,18 @@ plugins/openclaw-status/
 
 ## 🎤 Talking Points for Stream
 
-### What is Status?
-- **Status** (status.app) is a decentralized messenger, wallet, and Web3 browser
-- Built on **Waku** — a censorship-resistant, peer-to-peer messaging protocol (think "decentralized WhatsApp")
-- No central server stores your messages — they travel through a network of Waku relay nodes
+### What is Status? (and Logos)
+- **Status** (status.app) is a decentralized messenger, wallet, and Web3 browser — built on the **Logos** technology stack
+- **Logos** is a suite of decentralized infrastructure: Nomos (consensus/blockchain), Codex (storage), and Logos Messaging (communication)
+- Status uses **Logos Messaging** — a censorship-resistant, peer-to-peer messaging protocol (think "decentralized WhatsApp")
+- No central server stores your messages — they travel through a network of Logos Messaging relay nodes
 - End-to-end encrypted by default (Double Ratchet, like Signal)
 - Has a built-in Ethereum wallet — not a bolt-on, it's native to the app
 - Communities feature — like Discord servers but decentralized, no one can shut them down
 
 ### What is status-go?
 - The **core engine** behind Status — written in Go
-- Handles everything: Waku messaging, wallet transactions, key management, ENS resolution
+- Handles everything: Logos Messaging messaging, wallet transactions, key management, ENS resolution
 - Normally runs inside the Status mobile/desktop app
 - But it also ships as **`status-backend`** — a standalone HTTP/WebSocket server
 - That's our secret weapon: we can talk to the full Status stack via a simple REST API
@@ -218,7 +219,7 @@ plugins/openclaw-status/
 
 ### Why is this cool?
 - **No API keys, no cloud services** — status-backend runs locally on the Pi
-- Messages go through Waku P2P — censorship resistant, no central point of failure
+- Messages go through Logos Messaging P2P — censorship resistant, no central point of failure
 - The wallet is non-custodial — Jimmy holds his own keys
 - We're combining AI autonomy with decentralized infrastructure
 - "An AI agent that no one can shut down, silence, or freeze the funds of"
@@ -226,7 +227,7 @@ plugins/openclaw-status/
 ### The OpenClaw Plugin
 - OpenClaw is a framework for building AI agents with tool access
 - We wrote a **TypeScript channel plugin** (`@openclaw/status`) that bridges Status ↔ OpenClaw
-- Architecture: `Status Network (Waku) → status-backend (HTTP) → Plugin → AI Agent`
+- Architecture: `Status Network (Logos Messaging) → status-backend (HTTP) → Plugin → AI Agent`
 - Plugin polls for new messages every 15s, sends replies via `wakuext_sendOneToOneMessage`
 - Also handles media (images via `contentType: 7`), group chats, and now wallet commands
 - ~2000 lines of TypeScript including wallet integration (6 files, 613 lines for wallet alone)
