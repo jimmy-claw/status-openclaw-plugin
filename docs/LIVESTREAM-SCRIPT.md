@@ -191,7 +191,7 @@ plugins/openclaw-status/
 
 ### What is Status? (and Logos)
 - **Status** (status.app) is a decentralized messenger, wallet, and Web3 browser — built on the **Logos** technology stack
-- **Logos** is a suite of decentralized infrastructure: Nomos (consensus/blockchain), Codex (storage), and Logos Messaging (communication)
+- **Logos** is a suite of decentralized infrastructure: Logos Blockchain (consensus — LSSA/LEZ), Logos Storage (decentralized storage), and Logos Messaging (communication)
 - Status uses **Logos Messaging** — a censorship-resistant, peer-to-peer messaging protocol (think "decentralized WhatsApp")
 - No central server stores your messages — they travel through a network of Logos Messaging relay nodes
 - End-to-end encrypted by default (Double Ratchet, like Signal)
