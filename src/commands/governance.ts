@@ -42,6 +42,7 @@ export interface GovernanceState {
   threshold: number;         // ETH amount above which governance is needed (default 0.01)
   requiredApprovals: number; // how many signers need to approve (default: majority)
   proposals: Proposal[];
+  messageToProposal?: Record<string, string>; // Status message ID → proposal ID
 }
 
 function loadState(): GovernanceState {
@@ -155,9 +156,49 @@ export function checkGovernance(
   return proposal;
 }
 
-export function handleApproveCommand(args: string, senderPubkey: string): string {
-  const proposalId = args.trim();
-  if (!proposalId) return "Usage: !approve <proposal_id>";
+/**
+ * Link a Status message ID to a proposal (call after sending proposal message).
+ */
+export function linkMessageToProposal(messageId: string, proposalId: string): void {
+  const state = loadState();
+  if (!state.messageToProposal) state.messageToProposal = {};
+  state.messageToProposal[messageId] = proposalId;
+  saveState(state);
+}
+
+/**
+ * Resolve a proposal ID from either direct ID, message ID (reply), or latest pending.
+ */
+export function resolveProposalId(input: string, replyToMessageId?: string): string | null {
+  const state = loadState();
+  
+  // 1. If replying to a proposal message
+  if (replyToMessageId && state.messageToProposal?.[replyToMessageId]) {
+    return state.messageToProposal[replyToMessageId];
+  }
+  
+  // 2. Direct proposal ID
+  if (input) {
+    const p = state.proposals.find(p => p.id === input);
+    if (p) return p.id;
+  }
+  
+  // 3. No ID given — use the latest pending proposal
+  const pending = state.proposals.filter(p => p.status === "pending");
+  if (pending.length === 1) return pending[0].id;
+  if (pending.length > 1) return null; // ambiguous
+  
+  return null;
+}
+
+export function handleApproveCommand(args: string, senderPubkey: string, replyToMessageId?: string): string {
+  const proposalId = resolveProposalId(args.trim(), replyToMessageId);
+  if (!proposalId) {
+    const state = loadState();
+    const pending = state.proposals.filter(p => p.status === "pending");
+    if (pending.length > 1) return `Multiple pending proposals. Please specify:\n${pending.map(p => `  ${p.id}: ${p.amount} ETH → ${p.toName || shortKey(p.to)}`).join("\n")}`;
+    return "No pending proposals found.";
+  }
 
   const state = loadState();
   if (!state.signers.includes(senderPubkey)) return "❌ You are not a signer.";
@@ -179,9 +220,14 @@ export function handleApproveCommand(args: string, senderPubkey: string): string
   return `👍 Approved! (${proposal.approvals.length}/${state.requiredApprovals} needed)\nProposal ${proposalId}: ${proposal.amount} ETH → ${proposal.toName || shortKey(proposal.to)}`;
 }
 
-export function handleRejectCommand(args: string, senderPubkey: string): string {
-  const proposalId = args.trim();
-  if (!proposalId) return "Usage: !reject <proposal_id>";
+export function handleRejectCommand(args: string, senderPubkey: string, replyToMessageId?: string): string {
+  const proposalId = resolveProposalId(args.trim(), replyToMessageId);
+  if (!proposalId) {
+    const state = loadState();
+    const pending = state.proposals.filter(p => p.status === "pending");
+    if (pending.length > 1) return `Multiple pending proposals. Please specify:\n${pending.map(p => `  ${p.id}: ${p.amount} ETH → ${p.toName || shortKey(p.to)}`).join("\n")}`;
+    return "No pending proposals found.";
+  }
 
   const state = loadState();
   if (!state.signers.includes(senderPubkey)) return "❌ You are not a signer.";
