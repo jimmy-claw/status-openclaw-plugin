@@ -4,6 +4,7 @@
  */
 
 import { handleBalanceCommand } from "./balance.js";
+import { handleTipCommand } from "./tip.js";
 
 export interface CommandResult {
   command: string;
@@ -34,6 +35,12 @@ export async function handleCommand(text: string): Promise<CommandResult | null>
         response: await handleBalanceCommand(args || undefined),
       };
 
+    case "tip":
+      return {
+        command: "tip",
+        response: await handleTipCommand(args),
+      };
+
     case "help":
       return {
         command: "help",
@@ -41,9 +48,10 @@ export async function handleCommand(text: string): Promise<CommandResult | null>
           "🦞 Jimmy's Wallet Bot — Commands:",
           "",
           "!balance [address] — Check Sepolia ETH balance",
+          "!tip <address|ENS> <amount> — Send Sepolia ETH (max 0.01)",
           "!help — Show this message",
           "",
-          "More commands coming soon: !tip, !send, !signers",
+          "Coming soon: !signers, !approve",
         ].join("\n"),
       };
 
