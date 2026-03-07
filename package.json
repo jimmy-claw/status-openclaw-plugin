@@ -3,12 +3,19 @@
   "version": "0.1.0",
   "description": "OpenClaw channel plugin for Status messenger via status-backend HTTP API",
   "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "ws": "^8.16.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/ws": "^8.5.10"
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "openclaw": "*"
   },
   "openclaw": {
     "extensions": [

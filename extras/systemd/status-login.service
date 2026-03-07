@@ -5,7 +5,7 @@ Requires=status-backend.service
 
 [Service]
 Type=oneshot
-ExecStart=/home/vpavlin/.openclaw/workspace/scripts/status-login.sh
+ExecStart=/home/vpavlin/.openclaw/workspace/plugins/openclaw-status/extras/scripts/status-login.sh
 User=vpavlin
 RemainAfterExit=yes
 

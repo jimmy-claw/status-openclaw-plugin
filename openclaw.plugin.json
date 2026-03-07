@@ -4,6 +4,43 @@
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "port": {
+        "type": "number",
+        "description": "HTTP port of the status-backend API (default: 21405)"
+      },
+      "keyUID": {
+        "type": "string",
+        "description": "Key UID of the Status account (hex string)"
+      },
+      "password": {
+        "type": "string",
+        "description": "Account password for the Status account"
+      },
+      "dataDir": {
+        "type": "string",
+        "description": "Path to the status-backend data directory (default: ~/.status-backend/data)"
+      },
+      "name": {
+        "type": "string",
+        "description": "Optional display label for this account"
+      },
+      "enabled": {
+        "type": "boolean",
+        "description": "Enable or disable this channel"
+      },
+      "dmPolicy": {
+        "type": "string",
+        "enum": ["pairing", "allowlist", "open", "disabled"],
+        "description": "DM access control policy"
+      },
+      "allowFrom": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Public keys allowed to send DMs (for allowlist policy)"
+      }
+    }
   }
 }
