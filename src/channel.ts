@@ -48,7 +48,7 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
     order: 100,
   },
   capabilities: {
-    chatTypes: ["direct"],
+    chatTypes: ["direct", "group"],
     media: false,
   },
   reload: { configPrefixes: ["channels.status"] },
