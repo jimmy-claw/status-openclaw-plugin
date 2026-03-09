@@ -237,23 +237,25 @@ export const statusPlugin: ChannelPlugin<ResolvedStatusAccount> = {
 
         ctx.log?.info(`[${account.accountId}] Inbound ${chatInfo.isGroup ? 'GROUP' : 'DM'} from ${from.slice(0, 16)}...: ${text.slice(0, 80)}`);
 
-        // Send as system event with immediate wake (--mode now triggers agent turn)
+        // Send as system event — try enqueue first (direct session routing), then CLI fallback
+        const eventText = `${prefix} ${text}`;
         try {
-          const eventText = `${prefix} ${text}`;
-          await runtime.system.runCommandWithTimeout(
-            ["openclaw", "system", "event", "--text", eventText, "--mode", "now"],
-            { timeoutMs: 10_000 }
+          runtime.system.enqueueSystemEvent(
+            eventText,
+            { sessionKey: "agent:main:telegram:direct:78701493" }
           );
-          ctx.log?.info(`[${account.accountId}] Sent system event (mode=now): ${prefix} ${text.slice(0, 40)}`);
+          ctx.log?.info(`[${account.accountId}] Enqueued system event: ${prefix} ${text.slice(0, 40)}`);
         } catch (err: any) {
-          ctx.log?.error(`[${account.accountId}] Failed to send system event: ${err.message}`);
-          // Fallback to enqueue
+          ctx.log?.warn(`[${account.accountId}] enqueueSystemEvent failed, falling back to CLI: ${err.message}`);
           try {
-            runtime.system.enqueueSystemEvent(
-              `${prefix} ${text}`,
-              { sessionKey: "agent:main:main" }
+            await runtime.system.runCommandWithTimeout(
+              ["openclaw", "system", "event", "--text", eventText, "--mode", "now"],
+              { timeoutMs: 10_000 }
             );
-          } catch { /* last resort failed */ }
+            ctx.log?.info(`[${account.accountId}] Sent system event (mode=now): ${prefix} ${text.slice(0, 40)}`);
+          } catch (err2: any) {
+            ctx.log?.error(`[${account.accountId}] Failed to send system event: ${err2.message}`);
+          }
         }
       };
 
