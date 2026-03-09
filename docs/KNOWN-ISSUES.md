@@ -13,6 +13,10 @@
 ### Cause
 A bug in status-go (or its go-sqlcipher dependency) on arm64. The binary was built from source with GCC 14 patches for go-sqlcipher, but segfaults persist.
 
+### Upstream Tracking
+- **status-go issue #7354**: [feat: publish pre-built status-backend binaries for linux/amd64 and linux/arm64](https://github.com/status-im/status-go/issues/7354)  
+  Filed 2026-03-09. Status team has an existing Jenkins pipeline (`_assets/ci/Jenkinsfile.linux`) that builds for amd64 — the ask is to add arm64. Pre-built binaries would eliminate the need to build from source and likely reduce/eliminate these crashes (current binary was built locally with GCC 14 workarounds).
+
 ### Impact
 - After crash + auto-restart, Waku peers are lost
 - Messages sent during downtime are not automatically fetched
